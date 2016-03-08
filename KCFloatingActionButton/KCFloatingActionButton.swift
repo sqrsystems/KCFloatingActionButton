@@ -89,11 +89,6 @@ public class KCFloatingActionButton: UIView {
     public var closed: Bool = true
     
     /**
-     Delegate that can be used to learn more about the behavior of the FAB widget.
-    */
-    @IBOutlet public var fabDelegate: KCFloatingActionButtonDelegate?
-    
-    /**
         Button shape layer.
     */
     private var circleLayer: CAShapeLayer = CAShapeLayer()
@@ -125,6 +120,8 @@ public class KCFloatingActionButton: UIView {
         If you created this object from storyboard or `initWithFrame`, this property set true.
     */
     private var isCustomFrame: Bool = false
+    
+    private var keyboardSize: CGFloat = 0.0
     
     // MARK: - Initialize
     
@@ -205,10 +202,10 @@ public class KCFloatingActionButton: UIView {
     /**
         Items open.
     */
-    public func open() {
+    public func open(offsetY:CGFloat = 0) {
         if(items.count > 0){
             
-            setOverlayView()
+            setOverlayView(offsetY)
             self.superview?.insertSubview(overlayView, aboveSubview: self)
             self.superview?.bringSubviewToFront(self)
             overlayView.addTarget(self, action: Selector("close"), forControlEvents: UIControlEvents.TouchUpInside)
@@ -280,14 +277,10 @@ public class KCFloatingActionButton: UIView {
         Items open or close.
     */
     public func toggle() {
-        if items.count > 0 {
-            if closed == true {
-                open()
-            } else {
-                close()
-            }
+        if closed == true {
+            open()
         } else {
-            fabDelegate?.emptyKcfabSelected(self)
+            close()
         }
     }
     
@@ -434,16 +427,16 @@ public class KCFloatingActionButton: UIView {
         layer.addSublayer(tintLayer)
     }
     
-    private func setOverlayView() {
+    private func setOverlayView(offsetY:CGFloat = 0) {
         overlayView.frame = CGRectMake(
-            0,0,
+            0,0+offsetY,
             UIScreen.mainScreen().bounds.width,
             UIScreen.mainScreen().bounds.height
         )
+        
         overlayView.backgroundColor = overlayColor
         overlayView.alpha = 0
         overlayView.userInteractionEnabled = true
-        
     }
     
     private func setShadow() {
@@ -485,6 +478,15 @@ public class KCFloatingActionButton: UIView {
                 size
             )
         }
+    }
+    
+    public func didScrollUpdateFrame(offsetY:CGFloat) {
+        frame = CGRectMake(
+            UIScreen.mainScreen().bounds.size.width-size-paddingX,
+            UIScreen.mainScreen().bounds.size.height-size-paddingY+offsetY-self.keyboardSize,
+            size,
+            size
+        )
     }
     
     private func setObserver() {
@@ -562,7 +564,7 @@ public class KCFloatingActionButton: UIView {
         }
         
         if isCustomFrame == false {
-            setRightBottomFrame(keyboardSize)
+            //setRightBottomFrame(keyboardSize)
         } else {
             size = min(frame.size.width, frame.size.height)
         }
@@ -570,9 +572,10 @@ public class KCFloatingActionButton: UIView {
     
     internal func keyboardWillShow(notification: NSNotification) {
         guard let keyboardSize = notification.userInfo?[UIKeyboardFrameBeginUserInfoKey]?.CGRectValue.size else { return }
+        self.keyboardSize = keyboardSize.height-50
         
         if isCustomFrame == false {
-            setRightBottomFrame(keyboardSize.height)
+            //setRightBottomFrame(keyboardSize.height)
         } else {
             size = min(frame.size.width, frame.size.height)
         }
@@ -588,9 +591,12 @@ public class KCFloatingActionButton: UIView {
     }
     
     internal func keyboardWillHide(notification: NSNotification) {
+        self.keyboardSize = 0.0
+        close()
+        
         UIView.animateWithDuration(0.2, delay: 0, options: UIViewAnimationOptions.TransitionNone, animations: {
             if self.isCustomFrame == false {
-                self.setRightBottomFrame()
+                //self.setRightBottomFrame()
             } else {
                 self.size = min(self.frame.size.width, self.frame.size.height)
             }
