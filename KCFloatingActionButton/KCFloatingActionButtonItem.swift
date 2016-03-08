@@ -65,6 +65,11 @@ public class KCFloatingActionButtonItem: UIView {
         }
     }
     
+    public func setFont(font:UIFont) {
+        _titleLabel = titleLabel
+        _titleLabel?.font = font
+    }
+    
     /**
         Item's title.
     */
