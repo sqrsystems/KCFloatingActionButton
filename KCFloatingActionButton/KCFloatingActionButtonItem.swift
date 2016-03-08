@@ -90,11 +90,15 @@ public class KCFloatingActionButtonItem: UIView {
                 _iconImageView = UIImageView(frame: CGRectMake(frame.size.width - size, 0, 21, 23))
                 _iconImageView?.center = CGPointMake(size/2, size/2)
                 _iconImageView?.contentMode = UIViewContentMode.ScaleToFill
-                _iconImageView?.tintColor = UIColor.whiteColor()
                 addSubview(_iconImageView!)
             }
             return _iconImageView!
         }
+    }
+    
+    public func setImageTintColor(tintColor:UIColor) {
+        _iconImageView = iconImageView
+        _iconImageView?.tintColor = tintColor
     }
     
     /**
