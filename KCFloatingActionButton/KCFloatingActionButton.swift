@@ -7,6 +7,14 @@
 
 import UIKit
 
+public enum KCFABOpenAnimationType {
+    case Pop
+    case Fade
+    case SlideLeft
+    case SlideUp
+    case None
+}
+
 /**
     Floating Action Button Object. It has `KCFloatingActionButtonItem` objects.
     KCFloatingActionButton support storyboard designable.
@@ -42,7 +50,16 @@ public class KCFloatingActionButton: UIView {
             self.setNeedsDisplay()
         }
     }
-    
+	
+	/**
+		Automatically closes child items when tapped
+	*/
+	@IBInspectable public var autoCloseOnTap: Bool = true
+	
+	/**
+		Degrees to rotate image
+	*/
+	@IBInspectable public var rotationDegrees: CGFloat = -45
     /**
         Button color.
     */
@@ -77,7 +94,12 @@ public class KCFloatingActionButton: UIView {
         Child item's default button color.
     */
     @IBInspectable public var itemButtonColor: UIColor = UIColor.whiteColor()
-    
+	
+	/**
+		Child item's image color
+	*/
+	@IBInspectable public var itemImageColor: UIColor? = nil
+	
     /**
         Child item's default shadow color.
     */
@@ -87,6 +109,13 @@ public class KCFloatingActionButton: UIView {
     
     */
     public var closed: Bool = true
+    
+    public var openAnimationType: KCFABOpenAnimationType = .Pop
+    
+    /**
+     Delegate that can be used to learn more about the behavior of the FAB widget.
+    */
+    @IBOutlet public weak var fabDelegate: KCFloatingActionButtonDelegate?
     
     /**
         Button shape layer.
@@ -208,39 +237,37 @@ public class KCFloatingActionButton: UIView {
             setOverlayView(offsetY)
             self.superview?.insertSubview(overlayView, aboveSubview: self)
             self.superview?.bringSubviewToFront(self)
-            overlayView.addTarget(self, action: Selector("close"), forControlEvents: UIControlEvents.TouchUpInside)
-
+            overlayView.addTarget(self, action: #selector(close), forControlEvents: UIControlEvents.TouchUpInside)
             
             UIView.animateWithDuration(0.3, delay: 0,
                 usingSpringWithDamping: 0.55,
                 initialSpringVelocity: 0.3,
                 options: [.CurveEaseInOut], animations: { () -> Void in
-                    self.plusLayer.transform = CATransform3DMakeRotation(self.degreesToRadians(-45), 0.0, 0.0, 1.0)
+					if self.buttonImage == nil {
+						self.plusLayer.transform = CATransform3DMakeRotation(self.degreesToRadians(self.rotationDegrees), 0.0, 0.0, 1.0)
+					}
+					else {
+						self.buttonImageView.transform = CGAffineTransformMakeRotation(self.degreesToRadians(self.rotationDegrees))
+					}
                     self.overlayView.alpha = 1
                 }, completion: nil)
             
-            var itemHeight: CGFloat = 0
-            var delay = 0.0
-            for item in items {
-                if item.hidden == true { continue }
-                itemHeight += item.size
-                itemHeight += self.itemSpace
-                item.frame.origin.y = -itemHeight
-                item.layer.transform = CATransform3DMakeScale(0.4, 0.4, 1)
-                UIView.animateWithDuration(0.3, delay: delay,
-                    usingSpringWithDamping: 0.55,
-                    initialSpringVelocity: 0.3,
-                    options: [.CurveEaseInOut], animations: { () -> Void in
-                        item.layer.transform = CATransform3DMakeScale(1, 1, 1)
-                        item.alpha = 1
-                    }, completion: nil)
-                
-                delay += 0.1
-            }
             
-
+            switch openAnimationType {
+            case .Pop:
+                popAnimationWithOpen()
+            case .Fade:
+                fadeAnimationWithOpen()
+            case .SlideLeft:
+                slideLeftAnimationWithOpen()
+            case .SlideUp:
+                slideUpAnimationWithOpen()
+            case .None:
+                noneAnimationWithOpen()
+            }
         }
         
+        fabDelegate?.KCFABOpened?(self)
         closed = false
     }
     
@@ -249,27 +276,37 @@ public class KCFloatingActionButton: UIView {
     */
     public func close() {
         if(items.count > 0){
-            self.overlayView.removeTarget(self, action: Selector("close"), forControlEvents: UIControlEvents.TouchUpInside)
+            self.overlayView.removeTarget(self, action: #selector(close), forControlEvents: UIControlEvents.TouchUpInside)
             UIView.animateWithDuration(0.3, delay: 0,
                 usingSpringWithDamping: 0.6,
                 initialSpringVelocity: 0.8,
                 options: [], animations: { () -> Void in
-                    self.plusLayer.transform = CATransform3DMakeRotation(self.degreesToRadians(0), 0.0, 0.0, 1.0)
+					if self.buttonImage == nil {
+						self.plusLayer.transform = CATransform3DMakeRotation(self.degreesToRadians(0), 0.0, 0.0, 1.0)
+					}
+					else {
+						self.buttonImageView.transform = CGAffineTransformMakeRotation(self.degreesToRadians(0))
+					}
                     self.overlayView.alpha = 0
                 }, completion: {(f) -> Void in
                     self.overlayView.removeFromSuperview()
             })
             
-            var delay = 0.0
-            for item in items.reverse() {
-                if item.hidden == true { continue }
-                UIView.animateWithDuration(0.15, delay: delay, options: [], animations: { () -> Void in
-                        item.layer.transform = CATransform3DMakeScale(0.4, 0.4, 1)
-                        item.alpha = 0
-                    }, completion: nil)
-                delay += 0.1
+            switch openAnimationType {
+            case .Pop:
+                popAnimationWithClose()
+            case .Fade:
+                fadeAnimationWithClose()
+            case .SlideLeft:
+                slideLeftAnimationWithClose()
+            case .SlideUp:
+                slideUpAnimationWithClose()
+            case .None:
+                noneAnimationWithClose()
             }
         }
+        
+        fabDelegate?.KCFABClosed?(self)
         closed = true
     }
     
@@ -277,10 +314,14 @@ public class KCFloatingActionButton: UIView {
         Items open or close.
     */
     public func toggle() {
-        if closed == true {
-            open()
+        if items.count > 0 {
+            if closed == true {
+                open()
+            } else {
+                close()
+            }
         } else {
-            close()
+            fabDelegate?.emptyKCFABSelected?(self)
         }
     }
     
@@ -290,6 +331,7 @@ public class KCFloatingActionButton: UIView {
     public func addItem(item item: KCFloatingActionButtonItem) {
         item.frame.origin = CGPointMake(size/2-item.size/2, size/2-item.size/2)
         item.alpha = 0
+		item.actionButton = self
         items.append(item)
         addSubview(item)
     }
@@ -374,8 +416,14 @@ public class KCFloatingActionButton: UIView {
         if closed == false {
             for item in items {
                 if item.hidden == true { continue }
-                let itemPoint = item.convertPoint(point, fromView: self)
-                if CGRectContainsPoint(item.bounds, itemPoint) == true {
+                var itemPoint = item.convertPoint(point, fromView: self)
+                let size = CGRect(x: item.titleLabel.frame.origin.x + item.bounds.origin.x,
+                                  y: item.bounds.origin.y,
+                                  width: item.titleLabel.bounds.size.width + item.bounds.size.width,
+                                  height: item.bounds.size.height)
+                
+                if CGRectContainsPoint(size, itemPoint) == true {
+                    itemPoint = item.bounds.origin
                     return item.hitTest(itemPoint, withEvent: event)
                 }
             }
@@ -411,6 +459,7 @@ public class KCFloatingActionButton: UIView {
     private func setButtonImage() {
         buttonImageView.removeFromSuperview()
         buttonImageView = UIImageView(image: buttonImage)
+		buttonImageView.tintColor = plusColor
         buttonImageView.frame = CGRectMake(
             size/2 - buttonImageView.frame.size.width/2,
             size/2 - buttonImageView.frame.size.height/2,
@@ -428,17 +477,20 @@ public class KCFloatingActionButton: UIView {
     }
     
     private func setOverlayView(offsetY:CGFloat = 0) {
-        overlayView.frame = CGRectMake(
-            0,0+offsetY,
-            UIScreen.mainScreen().bounds.width,
-            UIScreen.mainScreen().bounds.height
-        )
-        
+		setOverlayFrame(offsetY)
         overlayView.backgroundColor = overlayColor
         overlayView.alpha = 0
         overlayView.userInteractionEnabled = true
     }
     
+	private func setOverlayFrame(offsetY:CGFloat = 0) {
+        overlayView.frame = CGRectMake(
+            0,0+offsetY,
+            UIScreen.mainScreen().bounds.width,
+            UIScreen.mainScreen().bounds.height
+        )
+	}
+	
     private func setShadow() {
         layer.shadowOffset = CGSizeMake(1, 1)
         layer.shadowRadius = 2
@@ -457,6 +509,10 @@ public class KCFloatingActionButton: UIView {
     
     private func itemDefaultSet(item: KCFloatingActionButtonItem) {
         item.buttonColor = itemButtonColor
+		
+		/// Use separate color (if specified) for item button image, or default to the plusColor
+		item.iconImageView.tintColor = itemImageColor ?? plusColor
+		
         item.circleShadowColor = itemShadowColor
         item.titleShadowColor = itemShadowColor
         item.size = itemSize
@@ -490,9 +546,9 @@ public class KCFloatingActionButton: UIView {
     }
     
     private func setObserver() {
-        NSNotificationCenter.defaultCenter().addObserver(self, selector: "deviceOrientationDidChange:", name: UIDeviceOrientationDidChangeNotification, object: nil)
-        NSNotificationCenter.defaultCenter().addObserver(self, selector: "keyboardWillShow:", name:UIKeyboardWillShowNotification, object: nil)
-        NSNotificationCenter.defaultCenter().addObserver(self, selector: "keyboardWillHide:", name:UIKeyboardWillHideNotification, object: nil)
+        NSNotificationCenter.defaultCenter().addObserver(self, selector: #selector(deviceOrientationDidChange(_:)), name: UIDeviceOrientationDidChangeNotification, object: nil)
+        NSNotificationCenter.defaultCenter().addObserver(self, selector: #selector(keyboardWillShow(_:)), name:UIKeyboardWillShowNotification, object: nil)
+        NSNotificationCenter.defaultCenter().addObserver(self, selector: #selector(keyboardWillHide(_:)), name:UIKeyboardWillHideNotification, object: nil)
     }
     
     deinit {
@@ -562,7 +618,10 @@ public class KCFloatingActionButton: UIView {
         if let size = notification.userInfo?[UIKeyboardFrameBeginUserInfoKey]?.CGRectValue.size {
             keyboardSize = size.height
         }
-        
+		
+		/// Update overlay frame for new orientation dimensions
+		setOverlayFrame()
+		
         if isCustomFrame == false {
             //setRightBottomFrame(keyboardSize)
         } else {
@@ -605,6 +664,166 @@ public class KCFloatingActionButton: UIView {
     }
 }
 
+/**
+    Opening animation functions
+ */
+extension KCFloatingActionButton {
+    /**
+        Pop animation
+     */
+    private func popAnimationWithOpen() {
+        var itemHeight: CGFloat = 0
+        var delay = 0.0
+        for item in items {
+            if item.hidden == true { continue }
+            itemHeight += item.size + itemSpace
+            item.layer.transform = CATransform3DMakeScale(1, 1, 1)
+            item.frame.origin.y = -itemHeight
+            item.layer.transform = CATransform3DMakeScale(0.4, 0.4, 1)
+            UIView.animateWithDuration(0.3, delay: delay,
+                                       usingSpringWithDamping: 0.55,
+                                       initialSpringVelocity: 0.3,
+                                       options: [.CurveEaseInOut], animations: { () -> Void in
+                                        item.layer.transform = CATransform3DMakeScale(1, 1, 1)
+                                        item.alpha = 1
+                }, completion: nil)
+            
+            delay += 0.1
+        }
+    }
+    
+    private func popAnimationWithClose() {
+        var delay = 0.0
+        for item in items.reverse() {
+            if item.hidden == true { continue }
+            UIView.animateWithDuration(0.15, delay: delay, options: [], animations: { () -> Void in
+                item.layer.transform = CATransform3DMakeScale(0.4, 0.4, 1)
+                item.alpha = 0
+                }, completion: nil)
+            delay += 0.1
+        }
+    }
+    
+    /**
+        Fade animation
+     */
+    private func fadeAnimationWithOpen() {
+        var itemHeight: CGFloat = 0
+        var delay = 0.0
+        for item in items {
+            if item.hidden == true { continue }
+            itemHeight += item.size + itemSpace
+            item.frame.origin.y = -itemHeight
+            UIView.animateWithDuration(0.4,
+                                       delay: delay,
+                                       options: [],
+                                       animations: { () -> Void in
+                                        item.alpha = 1
+                }, completion: nil)
+            
+            delay += 0.2
+        }
+    }
+    
+    private func fadeAnimationWithClose() {
+        var delay = 0.0
+        for item in items.reverse() {
+            if item.hidden == true { continue }
+            UIView.animateWithDuration(0.4,
+                                       delay: delay,
+                                       options: [],
+                                       animations: { () -> Void in
+                                        item.alpha = 0
+                }, completion: nil)
+            delay += 0.2
+        }
+    }
+    
+    /**
+        Slide left animation
+     */
+    private func slideLeftAnimationWithOpen() {
+        var itemHeight: CGFloat = 0
+        var delay = 0.0
+        for item in items {
+            if item.hidden == true { continue }
+            itemHeight += item.size + itemSpace
+            item.frame.origin.x = UIScreen.mainScreen().bounds.size.width - frame.origin.x
+            item.frame.origin.y = -itemHeight
+            UIView.animateWithDuration(0.3, delay: delay,
+                                       usingSpringWithDamping: 0.55,
+                                       initialSpringVelocity: 0.3,
+                                       options: [.CurveEaseInOut], animations: { () -> Void in
+                                        item.frame.origin.x = self.size/2 - self.itemSize/2
+                                        item.alpha = 1
+                }, completion: nil)
+            
+            delay += 0.1
+        }
+    }
+    
+    private func slideLeftAnimationWithClose() {
+        var delay = 0.0
+        for item in items.reverse() {
+            if item.hidden == true { continue }
+            UIView.animateWithDuration(0.3, delay: delay, options: [], animations: { () -> Void in
+                item.frame.origin.x = UIScreen.mainScreen().bounds.size.width - self.frame.origin.x
+                item.alpha = 0
+                }, completion: nil)
+            delay += 0.1
+        }
+    }
+    
+    /**
+        Slide up animation
+     */
+    private func slideUpAnimationWithOpen() {
+        var itemHeight: CGFloat = 0
+        for item in items {
+            if item.hidden == true { continue }
+            itemHeight += item.size + itemSpace
+            UIView.animateWithDuration(0.2, delay: 0, options: [], animations: { () -> Void in
+                                        item.frame.origin.y = -itemHeight
+                                        item.alpha = 1
+                }, completion: nil)
+        }
+    }
+    
+    private func slideUpAnimationWithClose() {
+        for item in items.reverse() {
+            if item.hidden == true { continue }
+            UIView.animateWithDuration(0.2, delay: 0, options: [], animations: { () -> Void in
+                item.frame.origin.y = 0
+                item.alpha = 0
+                }, completion: nil)
+        }
+    }
+    
+    /**
+        None animation
+     */
+    private func noneAnimationWithOpen() {
+        var itemHeight: CGFloat = 0
+        for item in items {
+            if item.hidden == true { continue }
+            itemHeight += item.size + itemSpace
+            item.frame.origin.y = -itemHeight
+            item.alpha = 1
+        }
+    }
+    
+    private func noneAnimationWithClose() {
+        for item in items.reverse() {
+            if item.hidden == true { continue }
+            item.frame.origin.y = 0
+            item.alpha = 0
+        }
+    }
+}
+
+/**
+    Util functions
+ */
 extension KCFloatingActionButton {
     private func degreesToRadians(degrees: CGFloat) -> CGFloat {
         return degrees / 180.0 * CGFloat(M_PI)
