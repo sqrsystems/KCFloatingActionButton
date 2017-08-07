@@ -8,59 +8,71 @@
 
 import UIKit
 
-class ViewController: UIViewController, KCFloatingActionButtonDelegate {
+class ViewController: UIViewController, FloatyDelegate {
+    
+    var floaty = Floaty()
     
     override func viewDidLoad() {
         super.viewDidLoad()
-
-        let item = KCFloatingActionButtonItem()
-        item.buttonColor = UIColor.blueColor()
-        item.circleShadowColor = UIColor.redColor()
-        item.titleShadowColor = UIColor.blueColor()
-        item.title = "Custom item"
         
-//        This object is dependent on the UIWindow.
-//        KCFABManager.defaultInstance().getButton().addItem(title: "I got a title")
-//        KCFABManager.defaultInstance().getButton().addItem("I got a icon", icon: UIImage(named: "icShare")!)
-//        KCFABManager.defaultInstance().getButton().addItem("I got a handler", icon: UIImage(named: "icMap")!, handler: { item in
-//            let alert = UIAlertController(title: "Hey", message: "I'm hungry...", preferredStyle: .Alert)
-//            alert.addAction(UIAlertAction(title: "Me too", style: .Default, handler: nil))
-//            self.presentViewController(alert, animated: true, completion: nil)
-//            KCFABManager.defaultInstance().getButton().close()
-//        })
-//        KCFABManager.defaultInstance().getButton().addItem(item: item)
-//        KCFABManager.defaultInstance().getButton().items[1].hidden = true
-//        KCFABManager.defaultInstance().show()
-        
-//        This object is dependent on the UIViewController.
-        let fab = KCFloatingActionButton()
-        fab.addItem(title: "I got a title")
-        fab.addItem("I got a icon", icon: UIImage(named: "icShare")!)
-        fab.addItem("I got a handler", icon: UIImage(named: "icMap")!, handler: { item in
-            let alert = UIAlertController(title: "Hey", message: "I'm hungry...", preferredStyle: .Alert)
-            alert.addAction(UIAlertAction(title: "Me too", style: .Default, handler: nil))
-            self.presentViewController(alert, animated: true, completion: nil)
-            fab.close()
-        })
-        fab.addItem(item: item)
-        fab.fabDelegate = self
-        self.view.addSubview(fab)
-    }
 
-    override func didReceiveMemoryWarning() {
-        super.didReceiveMemoryWarning()
-        // Dispose of any resources that can be recreated.
+        layoutFAB()
     }
 
     @IBAction func endEditing() {
         view.endEditing(true)
     }
     
-    func KCFABOpened(fab: KCFloatingActionButton) {
-        print("FAB Opened")
+    @IBAction func customImageSwitched(_ sender: UISwitch) {
+        if sender.isOn == true {
+            floaty.buttonImage = UIImage(named: "custom-add")
+        } else {
+            floaty.buttonImage = nil
+        }
     }
     
-    func KCFABClosed(fab: KCFloatingActionButton) {
-        print("FAB Closed")
+    func layoutFAB() {
+        let item = FloatyItem()
+        item.hasShadow = false
+        item.buttonColor = UIColor.blue
+        item.circleShadowColor = UIColor.red
+        item.titleShadowColor = UIColor.blue
+        item.titleLabelPosition = .right
+        item.title = "titlePosition right"
+        item.handler = { item in
+            
+        }
+
+        floaty.hasShadow = false
+        floaty.addItem(title: "I got a title")
+        floaty.addItem("I got a icon", icon: UIImage(named: "icShare"))
+        floaty.addItem("I got a handler", icon: UIImage(named: "icMap")) { item in
+            let alert = UIAlertController(title: "Hey", message: "I'm hungry...", preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "Me too", style: .default, handler: nil))
+            self.present(alert, animated: true, completion: nil)
+        }
+        floaty.addItem(item: item)
+        floaty.paddingX = self.view.frame.width/2 - floaty.frame.width/2
+        floaty.fabDelegate = self
+        
+        self.view.addSubview(floaty)
+
+    }
+    
+    // MARK: - Floaty Delegate Methods
+    func floatyWillOpen(_ floaty: Floaty) {
+        print("Floaty Will Open")
+    }
+    
+    func floatyDidOpen(_ floaty: Floaty) {
+        print("Floaty Did Open")
+    }
+    
+    func floatyWillClose(_ floaty: Floaty) {
+        print("Floaty Will Close")
+    }
+    
+    func floatyDidClose(_ floaty: Floaty) {
+        print("Floaty Did Close")
     }
 }

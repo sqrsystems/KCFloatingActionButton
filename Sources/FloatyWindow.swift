@@ -11,32 +11,32 @@ import UIKit
 /**
     KCFloatingActionButton dependent on UIWindow.
 */
-class KCFABWindow: UIWindow {
+class FloatyWindow: UIWindow {
     override init(frame: CGRect) {
         super.init(frame: frame)
         
-        self.backgroundColor = UIColor.clearColor()
-        self.windowLevel = UIWindowLevelStatusBar
+        self.backgroundColor = UIColor.clear
+        self.windowLevel = UIWindowLevelNormal
     }
 
     required init?(coder aDecoder: NSCoder) {
         super.init(coder: aDecoder)
     }
     
-    override func pointInside(point: CGPoint, withEvent event: UIEvent?) -> Bool {
-        let fabViewController = rootViewController as? KCFABViewController
-        if let fab = fabViewController?.fab {
-            if fab.closed == false {
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        let floatyViewController = rootViewController as? FloatyViewController
+        if let floaty = floatyViewController?.floaty {
+            if floaty.closed == false {
                 return true
             }
             
-            if CGRectContainsPoint(fab.frame, point) == true {
+            if floaty.frame.contains(point) == true {
                 return true
             }
             
-            for item in fab.items {
-                let itemFrame = self.convertRect(item.frame, fromView: fab)
-                if CGRectContainsPoint(itemFrame, point) == true {
+            for item in floaty.items {
+                let itemFrame = self.convert(item.frame, from: floaty)
+                if itemFrame.contains(point) == true {
                     return true
                 }
             }
